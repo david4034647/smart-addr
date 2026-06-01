@@ -152,8 +152,12 @@ public class RegionMode {
             if (regionDetails.getDistrict().size() > 1) {
                 boolean isMatchCityId = false;
                 for (Integer districtId : regionDetails.getDistrict()) {
-                    if (!regionIdToParentRegionId.get(districtId).toString().equals(regionDetails.getCity())) continue;
-                    isMatchCityId = true;
+                    Integer parentCityId = regionIdToParentRegionId.get(districtId);
+                    if (parentCityId == null) continue;
+                    if (parentCityId.toString().equals(regionDetails.getCity())) {
+                        isMatchCityId = true;
+                        break;
+                    }
                 }
                 if (!isMatchCityId) {
                     regionDetails.setCity("");
@@ -170,7 +174,10 @@ public class RegionMode {
                 if (derivedCityId != null && derivedCityId != 1) {
                     cityId = derivedCityId.toString();
                     regionDetails.setCity(cityId);
-                    regionDetails.setCity_name(regionIdNames.get(derivedCityId));
+                    String derivedCityName = regionIdNames.get(derivedCityId);
+                    if (derivedCityName != null) {
+                        regionDetails.setCity_name(derivedCityName);
+                    }
                 }
             }
             // 如果没有 district，使用已有的 city
@@ -201,7 +208,10 @@ public class RegionMode {
                 return;
             } else {
                 regionDetails.setProvince(provinceId);
-                regionDetails.setProvince_name(regionIdNames.get(Integer.valueOf(provinceId)));
+                String provinceName = regionIdNames.get(Integer.valueOf(provinceId));
+                if (provinceName != null) {
+                    regionDetails.setProvince_name(provinceName);
+                }
             }
         }
         catch (Exception e) {

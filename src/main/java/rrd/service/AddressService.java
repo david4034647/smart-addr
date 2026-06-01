@@ -54,11 +54,11 @@ public class AddressService {
      * Layer 3: 极简输入全文匹配兜底
      */
     public synchronized JSONObject getWords(String input) {
-        logger.info("[DEBUG] getWords input=" + input);
+        logger.debug("getWords input=" + input);
 
         // 判断是否应该提取收货人姓名（只有包含明确关键字时才提取）
         boolean allowConsignee = shouldExtractConsignee(input);
-        logger.info("[DEBUG] allowConsignee=" + allowConsignee);
+        logger.debug("allowConsignee=" + allowConsignee);
 
         // Layer 1: address-parse 主解析
         RegionDetails apResult = null;
@@ -77,14 +77,14 @@ public class AddressService {
 
         // 如果 address-parse 结果可靠，合并两个引擎的结果（address-parse 人名手机优先，旧逻辑地区补充）
         if (apResult != null && isReliableResult(apResult, input)) {
-            logger.info("[DEBUG] Layer 1 address-parse succeeded, merging with legacy");
+            logger.debug(" Layer 1 address-parse succeeded, merging with legacy");
             RegionDetails merged = mergeResults(apResult, legacyResult, allowConsignee);
             return merged.convertToJSON();
         }
 
         // Layer 3: 极简输入全文匹配兜底
         if (!isValidResult(legacyResult)) {
-            logger.info("[DEBUG] Layer 3 minimal input fallback");
+            logger.debug(" Layer 3 minimal input fallback");
             RegionDetails minimalResult = parseMinimalInput(input, allowConsignee);
             if (isValidResult(minimalResult)) {
                 return minimalResult.convertToJSON();
@@ -207,7 +207,7 @@ public class AddressService {
         // 规则2：极简纯人名输入兜底（确保本地覆盖线上功能）
         String trimmed = input.trim();
         if (trimmed.length() >= 2 && trimmed.length() <= 3 && StringUtil.isNameStrict(trimmed)) {
-            logger.info("[DEBUG] pure name fallback matched: " + trimmed);
+            logger.debug(" pure name fallback matched: " + trimmed);
             return true;
         }
         return false;
@@ -231,7 +231,7 @@ public class AddressService {
             String[] regionKeywords = {"省", "自治区", "市辖区", "特别行政区", "维吾尔", "回族", "壮族"};
             for (String kw : regionKeywords) {
                 if (consignee.contains(kw)) {
-                    logger.info("[DEBUG] unreliable: consignee contains region keyword '" + kw + "'");
+                    logger.debug(" unreliable: consignee contains region keyword '" + kw + "'");
                     return false;
                 }
             }
@@ -239,11 +239,11 @@ public class AddressService {
 
         // 检查2：如果 province 和输入中的省份明显不一致
         if (!province.isEmpty() && originalInput.contains("西藏") && !province.contains("西藏")) {
-            logger.info("[DEBUG] unreliable: province '" + province + "' mismatches 西藏 in input");
+            logger.debug(" unreliable: province '" + province + "' mismatches 西藏 in input");
             return false;
         }
         if (!province.isEmpty() && originalInput.contains("新疆") && !province.contains("新疆")) {
-            logger.info("[DEBUG] unreliable: province '" + province + "' mismatches 新疆 in input");
+            logger.debug(" unreliable: province '" + province + "' mismatches 新疆 in input");
             return false;
         }
 
@@ -252,7 +252,7 @@ public class AddressService {
                 && consignee.isEmpty() && originalInput.length() > 5) {
             // 但如果输入就是省名本身，不算不充分
             if (!originalInput.contains(province) || originalInput.length() > province.length() + 2) {
-                logger.info("[DEBUG] unreliable: only province parsed for long input");
+                logger.debug(" unreliable: only province parsed for long input");
                 return false;
             }
         }
@@ -273,7 +273,7 @@ public class AddressService {
             while ((l = this.iks.next()) != null) {
                 String word = l.getLexemeText();
                 int lexType = l.getLexemeType();
-                logger.info("[DEBUG] IK seg word=\"" + word + "\" type=" + lexType
+                logger.debug(" IK seg word=\"" + word + "\" type=" + lexType
                         + " begin=" + l.getBeginPosition() + " end=" + l.getEndPosition());
 
                 if (l.getLexemeType() == 2 && StringUtil.isPhone(l.getLexemeText())) {
@@ -284,7 +284,7 @@ public class AddressService {
                         || !input.substring(l.getEndPosition(), Math.min(input.length(), l.getEndPosition() + 1)).equals("路")
                         && this.regionMode.setAddress(l.getLexemeText(), regionDetails))) {
                     sb.append(l.getLexemeText());
-                    logger.info("[DEBUG]   -> appended to address buffer, sb now=\"" + sb.toString() + "\"");
+                    logger.debug("   -> appended to address buffer, sb now=\"" + sb.toString() + "\"");
                     continue;
                 }
                 this.putConsignee(regionDetails, address, sb, allowConsignee);
@@ -296,7 +296,7 @@ public class AddressService {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        logger.info("[DEBUG] final regionDetails province=" + regionDetails.getProvince()
+        logger.debug(" final regionDetails province=" + regionDetails.getProvince()
                 + " city=" + regionDetails.getCity()
                 + " district=" + regionDetails.getDistrict()
                 + " address=" + regionDetails.getAddress());
@@ -429,13 +429,13 @@ public class AddressService {
         if (text == null || text.length() < 3) {
             return false;
         }
-        logger.info("[DEBUG] tryExtractRegion text=\"" + text + "\"");
+        logger.debug(" tryExtractRegion text=\"" + text + "\"");
         for (int len = text.length(); len >= 3; len--) {
             for (int i = 0; i <= text.length() - len; i++) {
                 String sub = text.substring(i, i + len);
                 boolean setAddrResult = this.regionMode.setAddress(sub, regionDetails);
                 if (setAddrResult) {
-                    logger.info("[DEBUG]   extracted region=\"" + sub + "\" from offset=" + i);
+                    logger.debug("   extracted region=\"" + sub + "\" from offset=" + i);
                     if (i > 0) {
                         address.add(text.substring(0, i));
                     }

@@ -93,6 +93,8 @@ public class AddressParseAdapter {
                 rd.setCity(String.valueOf(cityId));
                 rd.setCity_name(regionMode.findRegionNameById(cityId));
             } else {
+                // 找不到 regionId 时，用原始名称作为 city 标记，确保 mergeResults 能识别
+                rd.setCity(cityName);
                 rd.setCity_name(cityName);
             }
         }
