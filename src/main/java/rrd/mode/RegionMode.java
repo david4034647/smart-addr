@@ -59,13 +59,13 @@ public class RegionMode {
     }
 
     public boolean setAddress(String s, RegionDetails regionDetails) {
-        logger.info("[DEBUG] setAddress word=\"" + s + "\" containsKey=" + regionNameIds.containsKey((Object)s));
+        logger.debug("setAddress word=\"" + s + "\" containsKey=" + regionNameIds.containsKey((Object)s));
         try {
             if (!regionNameIds.containsKey((Object)s)) {
                 return false;
             }
             List<Integer> regionNameToIds = (List<Integer>) regionNameIds.get(s);
-            logger.info("[DEBUG]   matched id count=" + regionNameToIds.size());
+            logger.debug("   matched id count=" + regionNameToIds.size());
             if (regionNameToIds.size() > 1) {
                 if (regionDetails.getDistrict().size() == 0) {
                     regionDetails.setDistrict(regionNameToIds);
@@ -82,11 +82,11 @@ public class RegionMode {
                 regions.add(parRegionId);
                 regionId = parRegionId;
             }
-            logger.info("[DEBUG]   region chain=" + regions + " size=" + regions.size());
+            logger.debug("   region chain=" + regions + " size=" + regions.size());
             if (regions.size() == 1 && regionDetails.getProvince().length() == 0) {
                 regionDetails.setProvince(((Integer)regions.get(0)).toString());
                 regionDetails.setProvince_name(regionIdNames.get(regions.get(0)));
-                logger.info("[DEBUG]   -> set PROVINCE id=" + regions.get(0) + " name=" + regionIdNames.get(regions.get(0)));
+                logger.debug("   -> set PROVINCE id=" + regions.get(0) + " name=" + regionIdNames.get(regions.get(0)));
                 return true;
             }
             if (regions.size() - 2 == 0 && regionDetails.getCity().length() == 0) {
@@ -95,21 +95,21 @@ public class RegionMode {
                 if (regionName != null && zhixiashi.contains(regionName) && regionDetails.getProvince().isEmpty()) {
                     regionDetails.setProvince(((Integer)regions.get(0)).toString());
                     regionDetails.setProvince_name(regionName);
-                    logger.info("[DEBUG]   -> set PROVINCE(直辖市) id=" + regions.get(0) + " name=" + regionName);
+                    logger.debug("   -> set PROVINCE(直辖市) id=" + regions.get(0) + " name=" + regionName);
                     return true;
                 }
                 regionDetails.setCity(((Integer)regions.get(0)).toString());
                 regionDetails.setCity_name(regionName);
-                logger.info("[DEBUG]   -> set CITY id=" + regions.get(0) + " name=" + regionName);
+                logger.debug("   -> set CITY id=" + regions.get(0) + " name=" + regionName);
                 return true;
             }
             if (regions.size() - 3 == 0 && regionDetails.getDistrict().size() == 0) {
                 regionDetails.setDistrict(regionNameToIds);
                 regionDetails.setDistrict_name(s);
-                logger.info("[DEBUG]   -> set DISTRICT id=" + regionNameToIds.get(0));
+                logger.debug("   -> set DISTRICT id=" + regionNameToIds.get(0));
                 return true;
             }
-            logger.info("[DEBUG]   chain length " + regions.size() + " does NOT match 1/2/3, skip");
+            logger.debug("   chain length " + regions.size() + " does NOT match 1/2/3, skip");
         }
         catch (Exception e) {
             logger.error((Object)"select address err ,", (Throwable)e);
@@ -148,6 +148,7 @@ public class RegionMode {
 
     public void supplementAddress(RegionDetails regionDetails) {
         try {
+            // 步骤1：处理多个 district 的情况
             if (regionDetails.getDistrict().size() > 1) {
                 boolean isMatchCityId = false;
                 for (Integer districtId : regionDetails.getDistrict()) {
@@ -159,21 +160,29 @@ public class RegionMode {
                     return;
                 }
             }
+
+            // 步骤2：确定 cityId
+            // 如果 district 存在，从 district 推导 city（优先级最高，覆盖 address-parse 的误判）
             String cityId = "";
-            cityId = regionDetails.getDistrict().size() == 1 ? regionIdToParentRegionId.get(regionDetails.getDistrict().get(0)).toString() : regionDetails.getCity();
+            if (regionDetails.getDistrict().size() == 1) {
+                Integer districtId = regionDetails.getDistrict().get(0);
+                Integer derivedCityId = regionIdToParentRegionId.get(districtId);
+                if (derivedCityId != null && derivedCityId != 1) {
+                    cityId = derivedCityId.toString();
+                    regionDetails.setCity(cityId);
+                    regionDetails.setCity_name(regionIdNames.get(derivedCityId));
+                }
+            }
+            // 如果没有 district，使用已有的 city
+            if (cityId.isEmpty()) {
+                cityId = regionDetails.getCity();
+            }
+
             if (cityId.isEmpty()) {
                 return;
             }
-            if (cityId.equals(regionDetails.getCity()) || regionDetails.getCity().isEmpty()) {
-                regionDetails.setCity(cityId);
-                regionDetails.setCity_name(regionIdNames.get(Integer.valueOf(cityId)));
-            } else {
-                regionDetails.setCity("");
-                regionDetails.setCity_name("");
-            }
-            if (regionDetails.getCity().isEmpty()) {
-                return;
-            }
+
+            // 步骤3：从 city 推导 province
             Integer parentId = regionIdToParentRegionId.get(Integer.valueOf(cityId));
             if (parentId == null) {
                 return;
