@@ -214,6 +214,10 @@ public class StringUtil {
                 continue;
             }
             if (CharMapper.getType(c) == CharMapper.CharType.Dot) {
+                if (c == '#') {
+                    sb.append(c);
+                    continue;
+                }
                 sb.append('\u90ae');
                 sb.append('\u7f16');
                 continue;

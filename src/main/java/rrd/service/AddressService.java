@@ -152,11 +152,20 @@ public class AddressService {
             merged.setProvince_name(legacy.getProvince_name());
         }
 
-        // address：取非空的那个
-        if (!ap.getAddress().isEmpty()) {
-            merged.setAddress(ap.getAddress());
-        } else if (!legacy.getAddress().isEmpty()) {
-            merged.setAddress(legacy.getAddress());
+        // address：优先使用包含更多信息的地址
+        // address-parse 可能丢失特殊字符（如 #），legacy 通常保留更完整
+        String apAddr = ap.getAddress();
+        String legacyAddr = legacy.getAddress();
+        if (!apAddr.isEmpty() && !legacyAddr.isEmpty()) {
+            if (legacyAddr.contains(apAddr) && legacyAddr.length() > apAddr.length()) {
+                merged.setAddress(legacyAddr);
+            } else {
+                merged.setAddress(apAddr);
+            }
+        } else if (!apAddr.isEmpty()) {
+            merged.setAddress(apAddr);
+        } else if (!legacyAddr.isEmpty()) {
+            merged.setAddress(legacyAddr);
         }
 
         // 补充省市关系
@@ -270,7 +279,14 @@ public class AddressService {
         try {
             Lexeme l = null;
             StringBuffer sb = new StringBuffer();
+            int lastEnd = 0;
             while ((l = this.iks.next()) != null) {
+                // 追加 IK 分词器跳过的特殊字符（如 # - / 等）
+                if (l.getBeginPosition() > lastEnd) {
+                    sb.append(input.substring(lastEnd, l.getBeginPosition()));
+                }
+                lastEnd = l.getEndPosition();
+
                 String word = l.getLexemeText();
                 int lexType = l.getLexemeType();
                 logger.debug(" IK seg word=\"" + word + "\" type=" + lexType
@@ -289,6 +305,10 @@ public class AddressService {
                 }
                 this.putConsignee(regionDetails, address, sb, allowConsignee);
                 sb.delete(0, sb.length());
+            }
+            // 追加最后一个 token 之后的剩余字符
+            if (lastEnd < input.length()) {
+                sb.append(input.substring(lastEnd));
             }
             this.putConsignee(regionDetails, address, sb, allowConsignee);
             this.getDetailAddress(regionDetails, address);
